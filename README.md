@@ -80,9 +80,8 @@ Scripts needed:
 * Reuse Coin Plugin Script
 * Reuse Coin Payment Script
 
-### Reuse Coin Treasury *
-
-This component provides a mechanism to exchange reuse coins for CKBytes. This treasury rewards the most impactful developer every epoch by distributing the ckbytes in the treasure to the developer who has accrued the most reuse coins that month.
+### Reuse Coin Treasury
+This component drives how developers make money. Basically, the CKByte usage fee for scripts is placed in the treasury, where it accrues interest. At the end of each epoch, the developer has the opportunity to exchange their reuse coins for CKBytes plus the interest accrued on those CKBytes
 
 ## Transaction Patterns
 
