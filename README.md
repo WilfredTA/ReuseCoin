@@ -100,4 +100,61 @@ A script dev can submit their script here. The app will verify that the script i
 The include script button will copy to the user’s keyboard a skeleton of a transaction that includes the necessary components in order to use the script.
 
 
+
+# Technical Design
+## Scripts
+### Reuse Coin Payment Script & Usage
+
+```
+args: {
+    udt_type: <type_hash>,
+    rate: uint128_t,
+    udt_wallet_cell: <lock_hash>
+}
+
+Tx Design:
+    Inputs:
+        udt_wallet_cell:
+            data: 
+                amount uint128_t
+            type:
+                code_hash: <0x...>
+                args: [governance_lock_hash]
+            lock:
+                code_hash: reuse_coin_wallet_lock,
+                args: [blake160_pubkey_hash]
+        UDT Cell
+            data: amount uint128_t
+            type:
+                code_hash: <0x...>
+                args: [governance_lock_hash]
+            lock:
+               script_user lock hash
+        cell_that_uses_script
+            type | lock
+                code_hash: <reuse_coin_compatible_script_hash>
+                args: [udt_type, rate, wallet_lock_hash, ..custom args]
+           
+Outputs:
+     udt_wallet_cell:
+            data: 
+                amount uint128_t // Constraint: must equal previous_amount + rate (enforced by reuse_coin_compatible_script)
+            type:
+                code_hash: <0x...>
+                args: [governance_lock_hash]
+            lock: 
+                code_hash: reuse_coin_wallet_lock,
+                args: [blake160_pubkey_hash]
+      cell_that_uses_script
+            type | lock
+                code_hash: <reuse_coin_compatible_script_hash>
+                args: [udt_type, rate, wallet_lock_hash, ..custom args]
+ Deps:
+    [reuse_coin_compatible_script, reuse_coin_payment_script]
+Constraints:
+1. output amount must equal amount of udt_wallet_cell in input PLUS the rate
+2. wallet_cell lock hash must be equal to lock hash as defined in the wallet_lock_hash arg passed to reuse_coin_compatible_script
+3. cell_that_uses_script must appear in input or output
+```
 *Features marked with an asterisk are “stretch goals”*
+
