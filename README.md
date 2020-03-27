@@ -63,6 +63,8 @@ All script devs need to do is include reuse coin plugin in their script. This sc
 
 Each script developer has a reuse coin cell wallet that is associated with a specific script. When users of a script use the script by the script dev, the transaction generates new tokens and deposits them into the wallet. The wallet is configurable to accept CKBytes or different UDT-standard compliant tokens. Essentially, the reuse coin system can interoperate with all tokens and enables developers to specify how they are paid and the amount they are paid.
 
+It will be compatible with CKByte token payment as well*
+
 Scripts needed:
 
 * Reuse Coin wallet configuration script
