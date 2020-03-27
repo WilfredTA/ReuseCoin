@@ -38,13 +38,11 @@ In this project, we will build out the infrastructure for the first type.
 
 The monetization of value/impact depends on the way value / impact is measured. As mentioned above, the first type of impact is what we will aim to complete for the scope of this hackathon.
 
-The goal is to provide to the script developer value equal to the value they provide the developer ecosystem. Therefore, the currency - reuse coin - amount accrued by a script will be both the compensation for - and measurement of - the value added by a developer’s published script.
-
 ## Aligning Incentives of Script Devs & Script Users
 
-Script devs want to add value and earn value which translates into: script devs want people to use their scripts.
+Script devs want to add value and earn value which translates into: script devs want people to use their scripts and they want to be paid for this.
 
-Script users want it to be easy to use the scripts. Using a script already developed should decrease the amount of work script users (dapp developers) want to use. Therefore, using a script should be easy rather than cumbersome, and the additional requirements that construct transactions should not add too much complexity, nor too much size or compute cycles, since both of those will incur costs on the script user, reducing the value-added of the used script.
+Script users want it to be easy to use the scripts. Reusing a script already developed by someone else should decrease the amount of work script users (dapp developers) have to do; it shouldn't be cumbersome. Therefore, the additional requirements that construct transactions should not add too much complexity, nor too much size or compute cycles, since both of those will incur costs on the script user, reducing the value-added of the used script.
 
 ## Script Discovery
 
@@ -54,20 +52,20 @@ Scripts built by script devs should be discoverable by dapp devs. For this reaso
 
 ## ReuseCoin Description
 
-To enable greater usability of scripts within the reuse coin system, users of scripts need not hold reuse coin. The usage of the script itself generates reuse coin for script developer.
+ReuseCoin is a protocol for enabling monetization of on-chain scripts. It is not a token itself; rather, it is a mechanism for developers to charge usage fees for their scripts and configure the types of currencies they would like to be compensated with. This means that they can be compensated with a stable coin if they wish, or native CKBytes, or any custom-built token.
 
-All script devs need to do is include reuse coin plugin in their script. This script simply looks inside the dep cells for the reuse coin payment script (which enforces that payment is made) and loads the reuse coin payment script and executes it.
+All script devs need to do is include reuse coin plugin in their script. This script simply looks inside the dep cells for the reuse coin payment script (which enforces that payment is made) in transactions that use the developer's script, loads the reuse coin payment script and executes the reuse coin payment script to enforce that the payment was made to the developer in the right amount with the right currency.
 
 
 ## Blockchain Components
 
 ### ReuseCoin Cell Wallet
 
-Each script developer has a reuse coin cell wallet that is associated with a specific script. When users of a script use the script by the script dev, the transaction generates new reuse coins and deposits them into the cell wallet. Each usage generates a single reuse coin.
+Each script developer has a reuse coin cell wallet that is associated with a specific script. When users of a script use the script by the script dev, the transaction generates new tokens and deposits them into the wallet. The wallet is configurable to accept CKBytes or different UDT-standard compliant tokens. Essentially, the reuse coin system can interoperate with all tokens and enables developers to specify how they are paid and the amount they are paid.
 
 Scripts needed:
 
-* Reuse Coin definition cell
+* Reuse Coin wallet configuration script
 * Reuse Coin anyone can pay lock
 
 ### Reusable Script Plugin
@@ -79,9 +77,6 @@ Scripts needed:
 
 * Reuse Coin Plugin Script
 * Reuse Coin Payment Script
-
-### Reuse Coin Treasury
-This component drives how developers make money. Basically, the CKByte usage fee for scripts is placed in the treasury, where it accrues interest. At the end of each epoch, the developer has the opportunity to exchange their reuse coins for CKBytes plus the interest accrued on those CKBytes
 
 ## Transaction Patterns
 
