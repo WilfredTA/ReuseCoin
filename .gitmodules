@@ -1,0 +1,6 @@
+[submodule "verifier/ckb-scripts/deps/secp256k1"]
+	path = verifier/ckb-scripts/deps/secp256k1
+	url = https://github.com/nervosnetwork/secp256k1
+[submodule "verifier/ckb-scripts/deps/ckb-c-stdlib"]
+	path = verifier/ckb-scripts/deps/ckb-c-stdlib
+	url = https://github.com/nervosnetwork/ckb-c-stdlib
