@@ -54,6 +54,7 @@ int has_signature(int *has_sig) {
   mol_seg_t lock_bytes_seg;
   ret = extract_witness_lock(temp, witness_len, &lock_bytes_seg);
   if (ret != 0) {
+    ckb_debug("ERROR ENCODING IN WITNESS LOCK");
     return ERROR_ENCODING;
   }
 
@@ -85,6 +86,7 @@ int check_payment_unlock(uint64_t min_ckb_amount, uint128_t min_udt_amount, mol_
   int udt_input_wallet_count = 0;
   while (1) {
     if (udt_input_wallet_count > 1) {
+      ckb_debug("MORE THAN ONE WALLET IN INPUT");
       return ERROR_WALLET_QUANTITY;
     }
     unsigned char type_hash[BLAKE2B_BLOCK_SIZE];
@@ -95,6 +97,10 @@ int check_payment_unlock(uint64_t min_ckb_amount, uint128_t min_udt_amount, mol_
     if (ret == CKB_INDEX_OUT_OF_BOUND) {
       break;
     }
+    if (ret == CKB_ITEM_MISSING) {
+      ckb_debug("NO WALLETS FOUND IN INPUT OF THIS SCRIPT GROUP");
+      return ret;
+    }
     if (ret != CKB_SUCCESS) {
       return ret;
     }
@@ -102,14 +108,17 @@ int check_payment_unlock(uint64_t min_ckb_amount, uint128_t min_udt_amount, mol_
     if (memcmp(type_hash, token_type->ptr, BLAKE2B_BLOCK_SIZE) == 0) {
       udt_input_wallet_count += 1;
       wallet_in_index = i;
+      break;
     }
 
     i += 1;
   }
 
-  if (udt_input_wallet_count != 1) {
+  if (udt_input_wallet_count  == 0) {
+    ckb_debug(" NO WALLET FOUND IN INPUT");
     return ERROR_WALLET_QUANTITY;
   } else {
+    ckb_debug("1 WALLET FOUND IN INPUT");
     unsigned char udt_amt[DATA_SIZE];
     uint64_t data_size = DATA_SIZE;
     int ret = ckb_load_cell_data(udt_amt, &data_size, 0, wallet_in_index, CKB_SOURCE_GROUP_INPUT);
@@ -129,41 +138,71 @@ int check_payment_unlock(uint64_t min_ckb_amount, uint128_t min_udt_amount, mol_
     udt_amount_in += current_amt;
   }
 
-  i = 0;
+  int j = 0;
   int udt_output_wallet_count = 0;
   int wallet_out_index = 0;
   while (1) {
     if (udt_output_wallet_count > 1) {
+      ckb_debug("MORE THAN ONE WALLET FOUND IN OUTPUT");
       return ERROR_WALLET_QUANTITY;
     }
-    unsigned char type_hash[BLAKE2B_BLOCK_SIZE];
-    uint64_t len = BLAKE2B_BLOCK_SIZE;
 
-    int ret = ckb_checked_load_cell_by_field(type_hash, &len, 0, i,
-              CKB_SOURCE_GROUP_OUTPUT, CKB_CELL_FIELD_TYPE_HASH);
-    if (ret == CKB_INDEX_OUT_OF_BOUND) {
+    unsigned char curr_lock_hash[BLAKE2B_BLOCK_SIZE];
+    uint64_t lock_len = BLAKE2B_BLOCK_SIZE;
+
+    int lh_ret = ckb_checked_load_cell_by_field(curr_lock_hash, &lock_len, 0, j,
+                  CKB_SOURCE_OUTPUT, CKB_CELL_FIELD_LOCK_HASH);
+
+    if (lh_ret == CKB_INDEX_OUT_OF_BOUND) {
       break;
     }
-    if (ret != CKB_SUCCESS) {
-      return ret;
+
+    if (lh_ret != CKB_SUCCESS) {
+      return lh_ret;
     }
 
-    if (memcmp(type_hash, token_type->ptr, BLAKE2B_BLOCK_SIZE) == 0) {
-      udt_output_wallet_count += 1;
-      wallet_out_index = i;
+    if (memcmp(lock_hash, curr_lock_hash, BLAKE2B_BLOCK_SIZE) == 0) {
+      unsigned char type_hash[BLAKE2B_BLOCK_SIZE];
+      uint64_t len = BLAKE2B_BLOCK_SIZE;
+
+      int ret = ckb_checked_load_cell_by_field(type_hash, &len, 0, j,
+                CKB_SOURCE_OUTPUT, CKB_CELL_FIELD_TYPE_HASH);
+      if (ret == CKB_INDEX_OUT_OF_BOUND) {
+        break;
+      }
+      if (ret == CKB_ITEM_MISSING) {
+        j += 1;
+        continue;
+      }
+      if (ret != CKB_SUCCESS) {
+        return ret;
+      }
+
+      if (memcmp(type_hash, token_type->ptr, BLAKE2B_BLOCK_SIZE) == 0) {
+        udt_output_wallet_count += 1;
+        wallet_out_index = j;
+        break;
+      }
     }
-    i += 1;
+
+    j += 1;
   }
 
-  if (udt_output_wallet_count != 1) {
+  if (udt_output_wallet_count == 0) {
+    ckb_debug("NO WALLET FOUND IN OUTPUT");
     return ERROR_WALLET_QUANTITY;
   } else {
+    ckb_debug("1 WALLET FOUND IN OUTPUT!");
     unsigned char udt_amt[DATA_SIZE];
     uint64_t data_size = DATA_SIZE;
     int ret = ckb_load_cell_data(udt_amt, &data_size, 0, wallet_out_index, CKB_SOURCE_GROUP_OUTPUT);
+    if (ret == CKB_INDEX_OUT_OF_BOUND) {
+      ckb_debug("YUP THIS IS OUT OF BOUNDS");
+    }
     if (ret != CKB_SUCCESS) {
       return ret;
     }
+
     // Turn into molecule
     mol_seg_t udt_data;
     udt_data.ptr = (uint8_t *)udt_amt;
@@ -188,6 +227,7 @@ int check_payment_unlock(uint64_t min_ckb_amount, uint128_t min_udt_amount, mol_
 int main() {
 
   // load args
+  ckb_debug("CELL WALLET LOCK EXECUTING!\n");
 
   unsigned char script[MAX_SCRIPT_SIZE];
   uint64_t len = MAX_SCRIPT_SIZE;
@@ -205,13 +245,15 @@ int main() {
   script_seg.size = len;
 
   if (MolReader_Script_verify(&script_seg, false) != MOL_OK) {
+    ckb_debug("ERROR IN SCRIPT ENCODING OF CELL WALLET LOCK");
     return ERROR_ENCODING;
   }
 
   mol_seg_t args_seg = MolReader_Script_get_args(&script_seg);
   mol_seg_t raw_args = MolReader_Bytes_raw_bytes(&args_seg);
 
-  if (MolReader_ReuseCoinArgs_verify(&raw_args, false) != MOL_OK) {
+  if (MolReader_ReuseCoinWalletArgs_verify(&raw_args, false) != MOL_OK) {
+    ckb_debug("ERROR OF REUSE COIN WALLET ARGS OF WALLET LOCK");
     return ERROR_ENCODING;
   }
 
@@ -227,8 +269,10 @@ int main() {
   if (check_sig_ret != CKB_SUCCESS) {
     return check_sig_ret;
   }
-  if (has_sig) {
-    return verify_secp256k1_blake160_sighash_all(pubkey_hash.ptr);
+  // mol_seg_t raw_pubkey_hash_bytes = MolReader_Bytes_raw_bytes(pubkey_hash);
+  // unsigned char pkh[BLAKE160_SIZE] =
+  if (has_sig && (verify_secp256k1_blake160_sighash_all(pubkey_hash.ptr) == CKB_SUCCESS)) {
+    return CKB_SUCCESS;
   } else {
     return check_payment_unlock(ckb_pay_amt, udt_pay_amt, &token_type);
   }

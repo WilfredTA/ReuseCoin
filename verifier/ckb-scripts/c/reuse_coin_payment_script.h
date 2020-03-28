@@ -27,6 +27,7 @@ typedef unsigned __int128 uint128_t;
 // The reuse coin specific args are the following:
 // 1. 32 byte lock hash of the cell wallet that your funds will be transferred to
 int reuse_coin_verify() {
+
   // First, load args and verify
   unsigned char script[MAX_SCRIPT_SIZE];
   uint64_t script_size = MAX_SCRIPT_SIZE;
@@ -43,23 +44,17 @@ int reuse_coin_verify() {
   mol_seg_t script_args = MolReader_Script_get_args(&script_seg);
   mol_seg_t raw_args = MolReader_Bytes_raw_bytes(&script_args);
 
-  if (MolReader_ReuseCoinArgs_verify(&raw_args, true) != MOL_OK) {
-    return ERROR_ARGS_ENCODING;
-}
-
-  mol_seg_t wallet_cell = MolReader_ReuseCoinArgs_get_wallet_hash(&raw_args);
-
-
+  if (raw_args.size < HASH_SIZE) {
+    return ERROR_ENCODING;
+  }
 
   int found_in_input = 0;
   int found_in_output = 0;
-
 
   int i = 0;
   while (1) {
     unsigned char temp_hash[HASH_SIZE];
     uint64_t lock_hash_size = HASH_SIZE;
-
 
     int lock_hash_ret = ckb_load_cell_by_field(temp_hash, &lock_hash_size, 0, i,
       CKB_SOURCE_INPUT, CKB_CELL_FIELD_LOCK_HASH);
@@ -70,15 +65,10 @@ int reuse_coin_verify() {
       return lock_hash_ret ;
     }
 
-
-    if (memcmp(temp_hash, wallet_cell.ptr, HASH_SIZE) == 0) {
-         found_in_input = 1;
+    if (memcmp(temp_hash, raw_args, HASH_SIZE) == 0) {
+         found_in_input += 1;
       }
-
-    if (found_in_input == 1) {
-      break;
-    }
-
+    i++;
   }
 
   i = 0;
@@ -94,23 +84,20 @@ int reuse_coin_verify() {
       break;
     }
     if (lock_hash_ret != CKB_SUCCESS) {
-      return lock_hash_ret ;
+      return lock_hash_ret;
     }
 
-    if (memcmp(temp_hash, wallet_cell.ptr, HASH_SIZE) == 0) {
-          found_in_output = 1;
+    if (memcmp(temp_hash, raw_args, HASH_SIZE) == 0) {
+          found_in_output += 1;
       }
 
-    if (found_in_output == 1) {
-      break;
-    }
+    i++;
   }
 
-  if (found_in_input == 1 || found_in_output == 1) {
+  if (found_in_input == 1 && found_in_output == 1) {
     return CKB_SUCCESS;
   } else {
     return ERROR_CELL_WALLET;
   }
-
 
 }

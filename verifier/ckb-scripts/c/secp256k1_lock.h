@@ -44,6 +44,7 @@ int verify_secp256k1_blake160_sighash_all(unsigned char pubkey_hash[BLAKE160_SIZ
   mol_seg_t lock_bytes_seg;
   ret = extract_witness_lock(temp, witness_len, &lock_bytes_seg);
   if (ret != 0) {
+    ckb_debug("ERROR ENCODING IN EXTRACT WITNESS LOCK INSIDE SECP SCRIPT");
     return ERROR_ENCODING;
   }
 

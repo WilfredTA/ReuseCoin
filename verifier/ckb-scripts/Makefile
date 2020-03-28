@@ -16,7 +16,7 @@ PROTOCOL_DIR := ../../shared/schema/blockchain.mol
 # docker pull nervos/ckb-riscv-gnu-toolchain:gnu-bionic-20191012
 BUILDER_DOCKER := nervos/ckb-riscv-gnu-toolchain@sha256:aae8a3f79705f67d505d1f1d5ddc694a4fd537ed1c7e9622420a470d59ba2ec3
 
-all: build/sudt build/type_id build/reuse_coin_cell_wallet_lock build/example_reuse
+all: build/sudt build/type_id build/reuse_coin_cell_wallet_lock build/reuse_coin_wallet build/example_reuse
 
 all-via-docker: ${PROTOCOL_HEADER}
 	docker run --rm -v `pwd`:/code ${BUILDER_DOCKER} bash -c "cd /code && make"
@@ -26,6 +26,10 @@ build/sudt: c/sudt.c
 	$(OBJCOPY) --strip-debug --strip-all $@
 
 build/reuse_coin_cell_wallet_lock: c/reuse_coin_cell_wallet_lock.c c/secp256k1_lock.h build/secp256k1_data_info.h $(SECP256K1_SRC)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+	$(OBJCOPY) --strip-debug --strip-all $@
+
+build/reuse_coin_wallet: c/reuse_coin_wallet.c c/secp256k1_lock.h build/secp256k1_data_info.h $(SECP256K1_SRC)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
 	$(OBJCOPY) --strip-debug --strip-all $@
 
