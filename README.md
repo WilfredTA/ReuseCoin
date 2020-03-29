@@ -1,5 +1,7 @@
 # ReuseCoin
 
+
+
 # Motivation
 
 Dapp developers on CKB are able to deploy custom scripts to chain that can be used by others. We have already seen this with some system scripts on CKB such as secp256k1.
@@ -104,58 +106,28 @@ The include script button will copy to the user’s keyboard a skeleton of a tra
 
 
 # Technical Design
-## Scripts
-### Reuse Coin Payment Script & Usage
+## Reuse Coin protocol
 
-```
-args: {
-    udt_type: <type_hash>,
-    rate: uint128_t,
-    udt_wallet_cell: <lock_hash>
-}
+The reuse coin protocol is composed of two primary parts:
+1. Payment script plugin
+2. Reuse Coin Cell Wallet
 
-Tx Design:
-    Inputs:
-        udt_wallet_cell:
-            data:
-                amount uint128_t
-            type:
-                code_hash: <0x...>
-                args: [governance_lock_hash]
-            lock:
-                code_hash: reuse_coin_wallet_lock,
-                args: [blake160_pubkey_hash]
-        UDT Cell
-            data: amount uint128_t
-            type:
-                code_hash: <0x...>
-                args: [governance_lock_hash]
-            lock:
-               script_user lock hash
-        cell_that_uses_script
-            type | lock
-                code_hash: <reuse_coin_compatible_script_hash>
-                args: [udt_type, rate, wallet_lock_hash, ..custom args]
+The payment script plugin is attached to a script and associates that script with a reuse coin cell wallet.
+This enables the wallet to manage payments to the developer when the script is used.
 
-Outputs:
-     udt_wallet_cell:
-            data:
-                amount uint128_t // Constraint: must equal previous_amount + rate (enforced by reuse_coin_compatible_script)
-            type:
-                code_hash: <0x...>
-                args: [governance_lock_hash]
-            lock:
-                code_hash: reuse_coin_wallet_lock,
-                args: [blake160_pubkey_hash]
-      cell_that_uses_script
-            type | lock
-                code_hash: <reuse_coin_compatible_script_hash>
-                args: [udt_type, rate, wallet_lock_hash, ..custom args]
- Deps:
-    [reuse_coin_compatible_script, reuse_coin_payment_script]
-Constraints:
-1. output amount must equal amount of udt_wallet_cell in input PLUS the rate
-2. wallet_cell lock hash must be equal to lock hash as defined in the wallet_lock_hash arg passed to reuse_coin_compatible_script
-3. cell_that_uses_script must appear in input or output
-```
-*Features marked with an asterisk are “stretch goals”*
+The reuse coin cell wallet is a flexible and configurable wallet.
+
+In designing this wallet, we anticipate many different needs of script developers and users:
+1. The desire of the script developer to get paid in different tokens, including custom tokens built on CKB, stable coins, and even native CKBytes. In other words, the wallet needs to interoperate with all tokens compliant with the UDT standard on CKB
+2. The desire of the script developer to manage the structure of the revenue streams their scripts are generating. Some developers may want to funnel revenue from multiple scripts into a single account. Some developers may want to keep a separate account for each script as well, where each wallet may still accept the same tokens at the same rates. In essence, the script developer should be able to decide how they want to organize their funds.
+2. The need of dapp developers to express complex operations, possibly relying on multiple reuse coin interoperating scripts by the same developer or by different developers. This means that the reuse coin protocol must be intelligent enough to handle multi-reuse-coin-script transactions, where those transactions can be composed of combinations of scripts associated with the same wallet, scripts associated with different wallets of the same type (same owner, same tokens, same usage fees), and scripts associated with different wallets entirely.
+
+
+Future steps
+- Allow developers to specify multiple wallets that the script user can choose to pay to. I.e., allow developer to accept a list of different compensations for the same script instead of just one
+- Implement a subscription based model where compensation is based on time the script is being referenced by a cell rather than by usage in tx
+
+## Refinements to script
+1. allow developer to deny ckbyte payments
+2. Dynamic loading with plugin
+3. also need to add safe arithmetic in there...

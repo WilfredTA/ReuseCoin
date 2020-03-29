@@ -419,32 +419,7 @@ int main () {
 
     int wallet_count_correct = (output_wallet_count == 1 && input_wallet_count == 1);
 
-    if (output_wallet_capacity == input_wallet_capacity) {
-      ckb_debug("WALLET CAPACITY IS EQUIVALENT");
-    }
-
-    if ((output_wallet_capacity > input_wallet_capacity)) {
-      ckb_debug("OUTPUT WALLET CAPACITY > INPUT WALLET CAPACITY");
-    }
-
-    if ((output_wallet_capacity - input_wallet_capacity) >=
-    ckb_pay_amt) {
-      ckb_debug("CAPACITY IS DIFFERENT BUT RATE IS ACHIEVED");
-    }
-
-    if (output_udt_balance > input_udt_balance) {
-      ckb_debug("OUTPUT TOKEN BALANCE > INPUT TOKEN BALANCE");
-    }
-
-    if (output_udt_balance < input_udt_balance) {
-      ckb_debug("INPUT TOKEN BALANCE > OUTPUT TOKEN BALANCE");
-    }
-
-    if ((output_udt_balance - input_udt_balance) >=
-    udt_pay_amt) {
-      ckb_debug("OUTPUT UDT BALANCE SATISFIES RATE");
-    }
-    ckb_debug("MADE IT TO THE END OF WALLET LOCK");
+  
     if (has_sig && verify_secp256k1_blake160_sighash_all(pubkey_hash) == CKB_SUCCESS) {
       return CKB_SUCCESS;
     } else {

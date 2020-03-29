@@ -133,9 +133,14 @@ table ReuseCoinArgs {
   wallet_hash: Byte32,
 }
 
+array ReuseCoinScript [byte; 32];
+
+option ReuseCoinScriptOpt (ReuseCoinScript);
+
 table ReuseCoinWalletArgs {
   pubkey_hash: Byte20,
   ckb_rate: Uint64,
   udt_rate: Uint128,
   token_type: Byte32,
+  script_hash: ReuseCoinScriptOpt,
 }

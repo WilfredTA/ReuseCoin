@@ -17,22 +17,22 @@ const issueUdt = async (ckb, udtDefInfo) => {
   }
 
   // Serialize UDT Data
-  let serializedUdtData = SerializeUDTData(udtDataObj)
+  //let serializedUdtData = SerializeUDTData(udtDataObj)
 
   // Verify UDT Data is schema compliant
-  let udtData = new UDTData(serializedUdtData)
+  //let udtData = new UDTData(serializedUdtData)
 
 
   // Create Output
   let udtInstanceOutput = {
-    capacity: `0x${ckb.capacityToShannons(udtData.view.byteLength)}`,
+    capacity: `0x${ckb.capacityToShannons(10)}`,
     lock: ckb.lockScript,
     type: {
       hashType: "data",
       codeHash: udtDefInfo.dataHash,
       args: ckb.core.utils.serializeArray(udtDefInfo.govHash)
     },
-    data: `${ckb.core.utils.bytesToHex(new Uint8Array(serializedUdtData))}`
+    data: `0x000000000000000000000000000${Number(250000).toString(16)}`
   }
 
   console.log(udtInstanceOutput)
@@ -253,9 +253,9 @@ const transfer = async (ckb, udtDefInfo, amount, recipient) => {
 // Deploys the reuse wallet lock script and then deploys a UDT wallet locked with wallet lock
 const deployReuseCoinWallet = async (ckb, udtInstance, rate) => {
   // 1. -------------------- Deploy lock code cell -------------
-  let code = fs.readFileSync('../../verifier/ckb-scripts/build/reuse_coin_cell_wallet_lock')
+  let code = fs.readFileSync('../../verifier/ckb-scripts/build/reuse_coin_wallet')
   const { pubkeyHash } = ckb
-  const {udtInstanceAsInput, udtInstanceTypeHash, udtInstanceType} = udtInstance
+  const {udtInstanceAsInput, udtInstanceTypeHash, udtInstanceType, defAsDep} = udtInstance
   let walletLockScriptOutput = {
     capacity: `0x${Number(ckb.getCapacityForFile(code)).toString(16)}`,
     lock: ckb.lockScript,
@@ -273,52 +273,32 @@ const deployReuseCoinWallet = async (ckb, udtInstance, rate) => {
 
   // Generate the right args
 
-  let {SerializeReuseCoinWalletArgs, ReuseCoinWalletArgs, UDTData, SerializeUDTData } = ckb.molecules
-  let pubkey_hash = ckb.core.utils.hexToBytes(ckb.publicKeyHash).buffer
-  let ckb_rate = ckb.core.utils.hexToBytes(`0x00000000000000${Number(15).toString(16)}`).buffer
-  let udt_rate = ckb.core.utils.hexToBytes(`0x000000000000000000000000000000${Number(rate).toString(16)}`).buffer
-  let token_type = ckb.core.utils.hexToBytes(udtInstanceTypeHash).buffer
 
-  let argsObj = {
-    pubkey_hash,
-    ckb_rate,
-    udt_rate,
-    token_type
-  }
-  console.log(argsObj, "<< ARGS OBj")
-  let serializedArgs = SerializeReuseCoinWalletArgs(argsObj)
-  let reuseCoinArgs = new ReuseCoinWalletArgs(serializedArgs)
+  let walletArgs = [
+    ckb.publicKeyHash,
+    `0x00000000000000${Number(15).toString(16)}`,
+    `0x000000000000000000000000000000${Number(rate).toString(16)}`,
+    udtInstanceTypeHash
 
-  let walletAmt = ckb.core.utils.hexToBytes(`0x0000000000000000000000000000${Number(1000).toString(16)}`).buffer
-  let walletDataObj = {
-    amount: walletAmt
-  }
+  ]
 
-  let udtChangeAmt = ckb.core.utils.hexToBytes(`0x00000000000000000000000000${Number(249000).toString(16)}`).buffer
-  let udtChangeDataObj = {
-    amount: udtChangeAmt
-  }
-  let serializedUdtChangeData = SerializeUDTData(udtChangeDataObj)
-  let udtChangeData = new UDTData(serializedUdtChangeData)
-
-  let serializedWalletData = SerializeUDTData(walletDataObj)
-  let walletData = new UDTData(serializedWalletData)
 
   let udtWalletOutput = {
     capacity: ckb.capacityToShannons(Number(1000)),
     lock: {
       codeHash: ckb.getHash(ckb.core.utils.bytesToHex(code)),
       hashType: 'data',
-      args: `${ckb.core.utils.bytesToHex(new Uint8Array(serializedArgs))}`
+      args: ckb.core.utils.serializeStruct(walletArgs)
     },
-    data: `${ckb.core.utils.bytesToHex(new Uint8Array(serializedWalletData))}`,
+    data: `0x00000000000000000000000000000${Number(1000).toString(16)}`,
     type: udtInstanceType
   }
 
+  let reuseCoinWalletLock = udtWalletOutput.lock
   let udtChangeOutput = {
     capacity: ckb.capacityToShannons(Number(1000)),
     lock: ckb.lockScript2,
-    data: `${ckb.core.utils.bytesToHex(new Uint8Array(serializedUdtChangeData))}`,
+    data: `0x000000000000000000000000000${Number(249000).toString(16)}`,
     type: udtInstanceType
   }
 
@@ -337,7 +317,11 @@ const deployReuseCoinWallet = async (ckb, udtInstance, rate) => {
   return {
     walletLockDep,
     walletCellAsInput: ckb.convertToInputCell(txHash2),
-    udtCellAsInput: ckb.convertToInputCell(txHash2, "0x1")
+    udtCellAsInput: ckb.convertToInputCell(txHash2, "0x1"),
+    reuseCoinWalletLock,
+    walletAsOutput: udtWalletOutput,
+    udtTypeScriptAsDep: defAsDep,
+    udtInstanceType
 
   }
 
@@ -355,19 +339,105 @@ const deployReuseCoinWallet = async (ckb, udtInstance, rate) => {
 const deployReusableScript = async (ckb, udtInfo, coinWalletInfo) => {
   let code = fs.readFileSync('../../verifier/ckb-scripts/build/example_reuse')
 
-  const { ReuseCoinArgs, SerializeReuseCoinArgs } = ckb.molecules
-  const { walletLockDep, walletCellAsInput, udtCellAsInput } = coinWalletInfo
-  const { govHash, udtInstanceTypeHash}
+
+  const { walletLockDep, walletCellAsInput, udtCellAsInput, reuseCoinWalletLock, udtTypeScriptAsDep, walletAsOutput } = coinWalletInfo
+  const { govHash, udtInstanceTypeHash, udtInstanceType } = udtInfo
   let reusableScriptOutput = {
+    capacity: ckb.capacityToShannons(1900),
+    lock: reuseCoinWalletLock,
+    data: ckb.core.utils.bytesToHex(code)
+  }
+
+  const reusableScriptDataHash = ckb.getHash(reusableScriptOutput.data)
+
+  let reusableScriptTx = await ckb.generateTransaction([reusableScriptOutput], {deps: [walletLockDep]})
+
+  console.log(reusableScriptTx, "<< REUSABLE SCRIPT DEPLOYMENT TX")
+  let signedTransaction = ckb.signTx(reusableScriptTx)
+
+  let txHash = await ckb.core.rpc.sendTransaction(signedTransaction)
+
+  return {
+    walletLockDep,
+    reusableScriptDep: ckb.convertToDepCell(txHash),
+    walletCellAsInput,
+    udtCellAsInput,
+    reuseCoinWalletLock,
+    reusableScriptDataHash,
+    walletAsOutput,
+    udtTypeScriptAsDep,
+    udtInstanceType
 
   }
+
 }
 
 
 
+// This transaction uses a reusable script and pays the developer
+// Needs:
+// 1. UDT instance
+// 2. udt type hash
+// 3. the reuseable coin wallet cell of the script owner
+// 4. the reusable coin wallet lock dep cell
+// 5.
+const useReusableScript = async (ckb, reuseCoinWalletInfo) => {
+  const { walletLockDep, reusableScriptDep, walletCellAsInput, udtCellAsInput,
+    reuseCoinWalletLock, reusableScriptDataHash, walletAsOutput, udtTypeScriptAsDep, udtInstanceType } = reuseCoinWalletInfo
 
-const generateTxWithReuseScript = async (ckb, reuseCoinWalletInfo) => {
+  const { ReuseCoinArgs, SerializeReuseCoinArgs, SerializeUDTData, UDTData } = ckb.molecules
 
+  let reuseCoinWalletLockHash = ckb.core.utils.scriptToHash(reuseCoinWalletLock)
+  let walletHashAsArg = reuseCoinWalletLockHash
+
+
+  // Create output 1: Output using the reusable script
+  let useOutput = {
+    capacity: ckb.capacityToShannons(500),
+    data: "0x",
+    lock: ckb.lockScript2,
+    type: {
+      codeHash: reusableScriptDataHash,
+      hashType: "data",
+      args: walletHashAsArg
+    }
+  }
+
+  // Create output 2: The reuse coin wallet owned by script developer
+
+  let newUdtAmount = `0x0000000000000000000000000000${Number(10000).toString(16)}`
+
+  let walletOutput = {
+    capacity: ckb.capacityToShannons(1000),
+    type: udtInstanceType,
+    lock: reuseCoinWalletLock,
+    data: newUdtAmount
+  }
+
+  // Create output 3: the leftover udt after paying usage fee 
+
+  let udtChangeAmt = `0x00000000000000000000000000${Number(248000).toString(16)}`
+
+
+  let udtChangeOutput = {
+    capacity: ckb.capacityToShannons(Number(1000)),
+    lock: ckb.lockScript2,
+    data: udtChangeAmt,
+    type: udtInstanceType
+  }
+
+  let additional = {
+    deps: [walletLockDep, reusableScriptDep, udtTypeScriptAsDep],
+    inputs: [walletCellAsInput, udtCellAsInput]
+  }
+  let useReusableScriptTx = await ckb.generateTransaction([useOutput, walletOutput], additional, ckb.lockHash2)
+
+
+  console.log(useReusableScriptTx, "<< USE SCRIPT TX")
+  let signedTx = ckb.signTx2(useReusableScriptTx)
+
+  console.log(signedTx, "<< SIGNED TX")
+  let txhash = await ckb.core.rpc.sendTransaction(signedTx)
 }
 
 const run = async () => {
@@ -388,8 +458,8 @@ const runReuseCoinEndToEnd = async (ckb) => {
     let udtInstance = await issueUdt(ckb, udtDefInfo)
     console.log("UDT INSTANCE DEPLOYED")
     let coinWallet = await deployReuseCoinWallet(ckb, udtInstance, 100)
-    let reusableScript = await deployReusableScript(ckb, udtInstance, coinWallet)
-    let scriptUse = await useReusableScript(ckb, udtInstance, coinWallet, reuseCoinScript)
+    let reusableScriptInfo = await deployReusableScript(ckb, udtInstance, coinWallet)
+    let scriptUse = await useReusableScript(ckb, reusableScriptInfo)
   } catch (e) {
     throw e
   }
@@ -409,7 +479,7 @@ const runUDTDeployment = async (ckb) => {
   try {
     let udtDefInfo = await deployCodeCells(ckb)
     let udtInstance = await issueUdt(ckb, udtDefInfo)
-    let transferRes = await transfer(ckb, udtInstance, 1000, ckb.lockScript2)
+    //let transferRes = await transfer(ckb, udtInstance, 1000, ckb.lockScript2)
   } catch(e) {
     throw e
   }

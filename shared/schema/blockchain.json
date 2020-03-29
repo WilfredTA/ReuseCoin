@@ -384,6 +384,17 @@
       ]
     },
     {
+      "type": "array",
+      "name": "ReuseCoinScript",
+      "item": "byte",
+      "item_count": 32
+    },
+    {
+      "type": "option",
+      "name": "ReuseCoinScriptOpt",
+      "item": "ReuseCoinScript"
+    },
+    {
       "type": "table",
       "name": "ReuseCoinWalletArgs",
       "fields": [
@@ -402,6 +413,10 @@
         {
           "name": "token_type",
           "type": "Byte32"
+        },
+        {
+          "name": "script_hash",
+          "type": "ReuseCoinScriptOpt"
         }
       ]
     }

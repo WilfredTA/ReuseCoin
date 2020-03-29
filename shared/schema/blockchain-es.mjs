@@ -1398,6 +1398,68 @@ export function SerializeReuseCoinArgs(value) {
   return serializeTable(buffers);
 }
 
+export class ReuseCoinScript {
+  constructor(reader, { validate = true } = {}) {
+    this.view = new DataView(assertArrayBuffer(reader));
+    if (validate) {
+      this.validate();
+    }
+  }
+
+  validate(compatible = false) {
+    assertDataLength(this.view.byteLength, 32);
+  }
+
+  indexAt(i) {
+    return this.view.getUint8(i);
+  }
+
+  raw() {
+    return this.view.buffer;
+  }
+
+  static size() {
+    return 32;
+  }
+}
+
+export function SerializeReuseCoinScript(value) {
+  const buffer = assertArrayBuffer(value);
+  assertDataLength(buffer.byteLength, 32);
+  return buffer;
+}
+
+export class ReuseCoinScriptOpt {
+  constructor(reader, { validate = true } = {}) {
+    this.view = new DataView(assertArrayBuffer(reader));
+    if (validate) {
+      this.validate();
+    }
+  }
+
+  validate(compatible = false) {
+    if (this.hasValue()) {
+      this.value().validate(compatible);
+    }
+  }
+
+  value() {
+    return new ReuseCoinScript(this.view.buffer, { validate: false });
+  }
+
+  hasValue() {
+    return this.view.byteLength > 0;
+  }
+}
+
+export function SerializeReuseCoinScriptOpt(value) {
+  if (value) {
+    return SerializeReuseCoinScript(value);
+  } else {
+    return new ArrayBuffer(0);
+  }
+}
+
 export class ReuseCoinWalletArgs {
   constructor(reader, { validate = true } = {}) {
     this.view = new DataView(assertArrayBuffer(reader));
@@ -1412,6 +1474,7 @@ export class ReuseCoinWalletArgs {
     new Uint64(this.view.buffer.slice(offsets[1], offsets[2]), { validate: false }).validate();
     new Uint128(this.view.buffer.slice(offsets[2], offsets[3]), { validate: false }).validate();
     new Byte32(this.view.buffer.slice(offsets[3], offsets[4]), { validate: false }).validate();
+    new ReuseCoinScriptOpt(this.view.buffer.slice(offsets[4], offsets[5]), { validate: false }).validate();
   }
 
   getPubkeyHash() {
@@ -1438,8 +1501,15 @@ export class ReuseCoinWalletArgs {
   getTokenType() {
     const start = 16;
     const offset = this.view.getUint32(start, true);
-    const offset_end = this.view.byteLength;
+    const offset_end = this.view.getUint32(start + 4, true);
     return new Byte32(this.view.buffer.slice(offset, offset_end), { validate: false });
+  }
+
+  getScriptHash() {
+    const start = 20;
+    const offset = this.view.getUint32(start, true);
+    const offset_end = this.view.byteLength;
+    return new ReuseCoinScriptOpt(this.view.buffer.slice(offset, offset_end), { validate: false });
   }
 }
 
@@ -1449,6 +1519,7 @@ export function SerializeReuseCoinWalletArgs(value) {
   buffers.push(SerializeUint64(value.ckb_rate));
   buffers.push(SerializeUint128(value.udt_rate));
   buffers.push(SerializeByte32(value.token_type));
+  buffers.push(SerializeReuseCoinScriptOpt(value.script_hash));
   return serializeTable(buffers);
 }
 

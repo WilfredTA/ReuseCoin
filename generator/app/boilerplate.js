@@ -122,6 +122,10 @@ const init = async () => {
       return core.signTransaction(privateKey)(tx)
     }
 
+    const signTx2 = (tx) => {
+      return core.signTransaction(privKey2)(tx)
+    }
+
     const getHash = (data) => {
       const s = core.utils.blake2b(32, null, null, core.utils.PERSONAL);
       s.update(core.utils.hexToBytes(data));
@@ -141,10 +145,10 @@ const init = async () => {
     // in which custom outputs and deps can be specified. It is quicker
     // to just build on top of SDK's limited method instead of building from scratch
     // even though this is less efficient
-    const generateTransaction = async (outputs, additional = {deps: [], inputs: []}) => {
+    const generateTransaction = async (outputs, additional = {deps: [], inputs: []}, specificLockHash=null) => {
       const ownerLockScript = lockScript
-
-      const unspentCells = await core.loadCells({lockHash})
+      let lockHashToUse = specificLockHash ? specificLockHash : lockHash
+      const unspentCells = await core.loadCells({lockHash:lockHashToUse})
 
       let neededCapacityInBytes = 61 * (outputs.length)
       let newOutputsData = outputs.map((out) => {
@@ -183,7 +187,7 @@ const init = async () => {
       rawTx.outputs = newOutputs.concat([rawTx.outputs[rawTx.outputs.length - 1]])
 
       rawTx.outputsData = newOutputsData.concat("0x")
-      rawTx.inputs = additional.inputs ? rawTx.inputs.concat(additional.inputs) : rawTx.inputs
+      rawTx.inputs = additional.inputs ? additional.inputs.concat(rawTx.inputs) : rawTx.inputs
       rawTx.witnesses = rawTx.inputs.map(() => '0x')
       rawTx.witnesses[0] = {
         lock: '',
@@ -238,7 +242,8 @@ const init = async () => {
       convertToDepCell,
       convertToInputCell,
       lockScript2,
-      lockHash2
+      lockHash2,
+      signTx2
     }
 
 
