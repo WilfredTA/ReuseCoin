@@ -30,22 +30,7 @@
 #define ERROR_WALLET_UNLOCK -58
 typedef unsigned __int128 uint128_t;
 
-int get_udt_amount(unsigned char *data, uint64_t data_len, uint128_t* amount) {
-  mol_seg_t udt_data;
-  udt_data.ptr = (uint8_t *)data;
-  udt_data.size = data_len;
 
-  // Use molecule to read amount
-  if (MolReader_UDTData_verify(&udt_data, false) != MOL_OK) {
-    ckb_debug("ERROR IN UDT DATA ENCODING");
-    return ERROR_ENCODING;
-  }
-  mol_seg_t amount_seg = MolReader_UDTData_get_amount(&udt_data);
-  //mol_seg_t raw_amount = MolReader_Bytes_raw_bytes(&amount_seg);
-  uint128_t current_amt = *(uint128_t *)(amount_seg.ptr);
-  *amount += current_amt;
-  return CKB_SUCCESS;
-}
 
 int has_signature(int *has_sig) {
   int ret;
@@ -131,7 +116,7 @@ int check_deps(int uniq_script, unsigned char *script_type_hash, uint128_t* expe
   return CKB_SUCCESS;
 }
 
-int check_inputs(uint128_t *input_udt_balance, uint64_t *input_capacity, int *wallet_count, unsigned char *token_type) {
+int check_inputs(uint128_t *input_udt_balance, uint64_t *input_capacity, int *wallet_count, unsigned char *token_type, unsigned char *lock_hash) {
   int i = 0;
   while (1) {
 
@@ -151,9 +136,11 @@ int check_inputs(uint128_t *input_udt_balance, uint64_t *input_capacity, int *wa
       return ERROR_SYSCALL;
     }
 
+
     if (memcmp(type_hash, token_type, BLAKE2B_BLOCK_SIZE) != 0) {
       return ERROR_WALLET_EXPECTS_DIFFERENT_TOKEN_TYPE;
     } else {
+      
       *wallet_count += 1;
       if (*wallet_count > 1) {
         ckb_debug("Too many input wallets of same type");
@@ -173,13 +160,7 @@ int check_inputs(uint128_t *input_udt_balance, uint64_t *input_capacity, int *wa
       }
 
       *input_udt_balance = udt_amt;
-      if (*input_udt_balance == 1000) {
-        ckb_debug("INPUT BALANCE IS 1000");
-      } else if (*input_udt_balance < 1000) {
-        ckb_debug("INPUT BALANCE < 1000");
-      } else if (*input_udt_balance > 1000){
-        ckb_debug("INPUT BALANCE > 1000");
-      }
+
 
       // get input wallet's capacity
       uint64_t ckbytes;
@@ -252,13 +233,6 @@ int check_outputs(uint128_t *output_udt_balance, uint64_t *output_capacity, int 
 
     *output_udt_balance = udt_amt;
 
-    if (*output_udt_balance == 1000) {
-      ckb_debug("output BALANCE IS 1000");
-    } else if (*output_udt_balance < 1000) {
-      ckb_debug("output BALANCE < 1000");
-    } else if (*output_udt_balance > 1000){
-      ckb_debug("output BALANCE > 1000");
-    }
 
     // Get ckbytes in wallet cell
     uint64_t ckbytes;
@@ -383,7 +357,7 @@ int main () {
     // record udt_in_amt and increment wallet count
     // record capacity amount
     ckb_debug("BEFORE INPUT CHECK");
-    int input_check = check_inputs(&input_udt_balance, &input_wallet_capacity, &input_wallet_count, token_type);
+    int input_check = check_inputs(&input_udt_balance, &input_wallet_capacity, &input_wallet_count, token_type, lock_hash);
     if (input_check != CKB_SUCCESS) {
       return input_check;
     }
@@ -419,7 +393,7 @@ int main () {
 
     int wallet_count_correct = (output_wallet_count == 1 && input_wallet_count == 1);
 
-  
+
     if (has_sig && verify_secp256k1_blake160_sighash_all(pubkey_hash) == CKB_SUCCESS) {
       return CKB_SUCCESS;
     } else {

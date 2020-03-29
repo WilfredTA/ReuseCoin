@@ -65,7 +65,7 @@ int reuse_coin_verify() {
       return lock_hash_ret ;
     }
 
-    if (memcmp(temp_hash, raw_args, HASH_SIZE) == 0) {
+    if (memcmp(temp_hash, raw_args.ptr, HASH_SIZE) == 0) {
          found_in_input += 1;
       }
     i++;
@@ -87,7 +87,7 @@ int reuse_coin_verify() {
       return lock_hash_ret;
     }
 
-    if (memcmp(temp_hash, raw_args, HASH_SIZE) == 0) {
+    if (memcmp(temp_hash, raw_args.ptr, HASH_SIZE) == 0) {
           found_in_output += 1;
       }
 
